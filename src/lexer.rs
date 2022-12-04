@@ -216,7 +216,7 @@ mod tests {
         let mut mock = MockTokenCollector::default();
         let mut lexer = Lexer::new(&mut mock);
         lexer.lex("regular *italic* word");
-        lexer.lex("and _italic bold word");
+        lexer.lex("and _italic_ bold word");
         lexer.lex("*italic with spaces*");
 
         assert_eq!(
@@ -231,6 +231,7 @@ mod tests {
                 "word(and)",
                 "begin_italic",
                 "word(italic)",
+                "end_italic",
                 "word(bold)",
                 "word(word)",
                 "line_break",
