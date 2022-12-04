@@ -73,14 +73,14 @@ where
         if word.starts_with("**") || word.starts_with("__") {
             self.collector.begin_bold();
             if word.ends_with("**") || word.ends_with("__") {
-                self.collector.word(&word[2..word.len() - 2]);
+                self.lex_word(&word[2..word.len() - 2]);
                 self.collector.end_bold();
             } else {
-                self.collector.word(&word[2..]);
+                self.lex_word(&word[2..]);
             }
             return Some(());
         } else if word.ends_with("**") || word.ends_with("__") {
-            self.collector.word(&word[..word.len() - 2]);
+            self.lex_word(&word[..word.len() - 2]);
             self.collector.end_bold();
             return Some(());
         }
@@ -270,6 +270,47 @@ mod tests {
                 "url(https://b.com)",
                 "word(with)",
                 "word(spaces)",
+                "line_break"
+            ]
+        );
+    }
+
+    #[test]
+    fn bold_link() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("**[Bold](https://a.com)**");
+
+        assert_eq!(
+            mock.tokens,
+            vec![
+                "begin_bold",
+                "begin_label",
+                "word(Bold)",
+                "end_label",
+                "url(https://a.com)",
+                "end_bold",
+                "line_break"
+            ]
+        );
+    }
+
+    #[test]
+    fn bold_link_with_spaces() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("**[Bold Link](https://a.com)**");
+
+        assert_eq!(
+            mock.tokens,
+            vec![
+                "begin_bold",
+                "begin_label",
+                "word(Bold)",
+                "word(Link)",
+                "end_label",
+                "url(https://a.com)",
+                "end_bold",
                 "line_break"
             ]
         );
