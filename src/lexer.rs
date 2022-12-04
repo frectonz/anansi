@@ -20,6 +20,7 @@ where
 
         for line in lines {
             self.lex_line(line.trim());
+            self.collector.line_break();
         }
     }
 
@@ -154,8 +155,24 @@ mod tests {
         assert_eq!(
             mock.tokens,
             vec![
-                "h1", "word(H1)", "h2", "word(H2)", "h3", "word(H3)", "h4", "word(H4)", "h5",
-                "word(H5)", "h6", "word(H6)",
+                "h1",
+                "word(H1)",
+                "line_break",
+                "h2",
+                "word(H2)",
+                "line_break",
+                "h3",
+                "word(H3)",
+                "line_break",
+                "h4",
+                "word(H4)",
+                "line_break",
+                "h5",
+                "word(H5)",
+                "line_break",
+                "h6",
+                "word(H6)",
+                "line_break"
             ]
         );
     }
@@ -176,17 +193,20 @@ mod tests {
                 "word(bold)",
                 "end_bold",
                 "word(word)",
+                "line_break",
                 "word(and)",
                 "begin_bold",
                 "word(another)",
                 "end_bold",
                 "word(bold)",
                 "word(word)",
+                "line_break",
                 "begin_bold",
                 "word(bold)",
                 "word(with)",
                 "word(spaces)",
                 "end_bold",
+                "line_break"
             ]
         );
     }
@@ -207,16 +227,19 @@ mod tests {
                 "word(italic)",
                 "end_italic",
                 "word(word)",
+                "line_break",
                 "word(and)",
                 "begin_italic",
                 "word(italic)",
                 "word(bold)",
                 "word(word)",
+                "line_break",
                 "begin_italic",
                 "word(italic)",
                 "word(with)",
                 "word(spaces)",
                 "end_italic",
+                "line_break"
             ]
         );
     }
@@ -237,6 +260,7 @@ mod tests {
                 "word(Link)",
                 "end_label",
                 "url(https://a.com)",
+                "line_break",
                 "word(and)",
                 "begin_label",
                 "word(Another)",
@@ -245,6 +269,7 @@ mod tests {
                 "url(https://b.com)",
                 "word(with)",
                 "word(spaces)",
+                "line_break"
             ]
         );
     }
