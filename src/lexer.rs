@@ -356,4 +356,23 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn link_header() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("# [Header](https://a.com)");
+
+        assert_eq!(
+            mock.tokens,
+            vec![
+                "h1",
+                "begin_label",
+                "word(Header)",
+                "end_label",
+                "url(https://a.com)",
+                "line_break"
+            ]
+        );
+    }
 }
