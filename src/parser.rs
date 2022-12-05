@@ -1,4 +1,4 @@
-use crate::TokenCollector;
+use crate::{HeaderLevel, Line, Token, TokenCollector};
 
 pub struct Parser {
     words: Vec<Token>,
@@ -7,33 +7,6 @@ pub struct Parser {
     parsing_italic: bool,
     parsing_link: bool,
     tokens: Vec<Line>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Token {
-    Bold(Vec<Token>),
-    Italic(Vec<Token>),
-    Regular(String),
-    Link { label: Vec<Token>, url: String },
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Line {
-    Header {
-        level: HeaderLevel,
-        tokens: Vec<Token>,
-    },
-    Text(Vec<Token>),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum HeaderLevel {
-    H1,
-    H2,
-    H3,
-    H4,
-    H5,
-    H6,
 }
 
 impl TokenCollector for Parser {
@@ -297,6 +270,23 @@ mod tests {
                     Token::Regular("spaces".to_string())
                 ])
             ]
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn parse_bold_link() {
+        let mut parser = Parser::new();
+        let mut lexer = Lexer::new(&mut parser);
+
+        lexer.lex("**[Bold](https://a.com)**");
+
+        assert_eq!(
+            parser.tokens(),
+            &[Line::Text(vec![Token::Bold(vec![Token::Link {
+                label: vec![Token::Regular("Bold".to_string()),],
+                url: "https://a.com".to_string()
+            }])])]
         );
     }
 }
