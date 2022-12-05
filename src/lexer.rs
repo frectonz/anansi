@@ -92,14 +92,14 @@ where
         if word.starts_with("*") || word.starts_with("_") {
             self.collector.begin_italic();
             if word.ends_with("*") || word.ends_with("_") {
-                self.collector.word(&word[1..word.len() - 1]);
+                self.lex_word(&word[1..word.len() - 1]);
                 self.collector.end_italic();
             } else {
-                self.collector.word(&word[1..]);
+                self.lex_word(&word[1..]);
             }
             Some(())
         } else if word.ends_with("*") || word.ends_with("_") {
-            self.collector.word(&word[..word.len() - 1]);
+            self.lex_word(&word[..word.len() - 1]);
             self.collector.end_italic();
             Some(())
         } else {
@@ -311,6 +311,47 @@ mod tests {
                 "end_label",
                 "url(https://a.com)",
                 "end_bold",
+                "line_break"
+            ]
+        );
+    }
+
+    #[test]
+    fn italic_link() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("*[Italic](https://a.com)*");
+
+        assert_eq!(
+            mock.tokens,
+            vec![
+                "begin_italic",
+                "begin_label",
+                "word(Italic)",
+                "end_label",
+                "url(https://a.com)",
+                "end_italic",
+                "line_break"
+            ]
+        );
+    }
+
+    #[test]
+    fn italic_link_with_spaces() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("*[Italic Link](https://a.com)*");
+
+        assert_eq!(
+            mock.tokens,
+            vec![
+                "begin_italic",
+                "begin_label",
+                "word(Italic)",
+                "word(Link)",
+                "end_label",
+                "url(https://a.com)",
+                "end_italic",
                 "line_break"
             ]
         );
