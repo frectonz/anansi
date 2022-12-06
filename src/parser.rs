@@ -1,292 +1,251 @@
-use crate::{HeaderLevel, Line, Token, TokenCollector};
+use crate::{Builder, Document, HeaderLevel, TokenCollector};
 
-pub struct Parser {
-    words: Vec<Token>,
-    header_level: Option<HeaderLevel>,
-    parsing_bold: bool,
-    parsing_italic: bool,
-    parsing_link: bool,
-    tokens: Vec<Line>,
+struct Transition {
+    from: State,
+    on: Event,
+    to: State,
+    action: Action,
 }
 
-impl TokenCollector for Parser {
+impl From<(State, Event, State, Action)> for Transition {
+    fn from((from, on, to, action): (State, Event, State, Action)) -> Self {
+        Self {
+            from,
+            on,
+            to,
+            action,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum State {
+    Start,
+    Header,
+    Text,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Event {
+    Header,
+    Text,
+    StartBold,
+    EndBold,
+    StartItalic,
+    EndItalic,
+    StartLabel,
+    EndLabel,
+}
+
+type Action = fn(&mut Builder);
+
+pub struct Parser<'a> {
+    state: State,
+    transitions: Vec<Transition>,
+    builder: &'a mut Builder,
+}
+
+impl<'a> TokenCollector for Parser<'a> {
     fn h1(&mut self) {
-        self.header_level = Some(HeaderLevel::H1);
+        self.handle_event(Event::Header);
+        self.builder.set_header_level(HeaderLevel::H1);
     }
 
     fn h2(&mut self) {
-        self.header_level = Some(HeaderLevel::H2);
+        self.handle_event(Event::Header);
+        self.builder.set_header_level(HeaderLevel::H2);
     }
 
     fn h3(&mut self) {
-        self.header_level = Some(HeaderLevel::H3);
+        self.handle_event(Event::Header);
+        self.builder.set_header_level(HeaderLevel::H3);
     }
 
     fn h4(&mut self) {
-        self.header_level = Some(HeaderLevel::H4);
+        self.handle_event(Event::Header);
+        self.builder.set_header_level(HeaderLevel::H4);
     }
 
     fn h5(&mut self) {
-        self.header_level = Some(HeaderLevel::H5);
+        self.handle_event(Event::Header);
+        self.builder.set_header_level(HeaderLevel::H5);
     }
 
     fn h6(&mut self) {
-        self.header_level = Some(HeaderLevel::H6);
+        self.handle_event(Event::Header);
+        self.builder.set_header_level(HeaderLevel::H6);
     }
 
     fn begin_bold(&mut self) {
-        self.parsing_bold = true;
-        self.words.push(Token::Bold(vec![]));
+        self.handle_event(Event::StartBold);
     }
 
     fn end_bold(&mut self) {
-        self.parsing_bold = false;
+        self.handle_event(Event::EndBold);
     }
 
     fn begin_italic(&mut self) {
-        self.parsing_italic = true;
-        self.words.push(Token::Italic(vec![]));
+        self.handle_event(Event::StartItalic);
     }
 
     fn end_italic(&mut self) {
-        self.parsing_italic = false;
+        self.handle_event(Event::EndItalic);
     }
 
     fn begin_label(&mut self) {
-        self.parsing_link = true;
-        self.words.push(Token::Link {
-            label: vec![],
-            url: String::new(),
-        });
+        self.handle_event(Event::StartLabel);
     }
 
-    fn end_label(&mut self) {}
+    fn end_label(&mut self) {
+        self.handle_event(Event::EndLabel);
+    }
 
     fn url(&mut self, url: &str) {
-        if self.parsing_link {
-            if let Some(Token::Link { url: ref mut u, .. }) = self.words.last_mut() {
-                *u = url.to_string();
-            }
-            self.parsing_link = false;
-        }
+        self.builder.add_url(url);
     }
 
     fn word(&mut self, word: &str) {
-        if self.parsing_bold {
-            if let Some(Token::Bold(ref mut tokens)) = self.words.last_mut() {
-                tokens.push(Token::Regular(word.to_string()));
-            }
-        } else if self.parsing_italic {
-            if let Some(Token::Italic(ref mut tokens)) = self.words.last_mut() {
-                tokens.push(Token::Regular(word.to_string()));
-            }
-        } else if self.parsing_link {
-            if let Some(Token::Link {
-                label: ref mut tokens,
-                ..
-            }) = self.words.last_mut()
-            {
-                tokens.push(Token::Regular(word.to_string()));
-            }
-        } else {
-            self.words.push(Token::Regular(word.to_string()));
-        }
+        self.builder.add_word(word);
     }
 
     fn line_break(&mut self) {
-        if self.header_level.is_some() {
-            let header = Line::Header {
-                level: self.header_level.take().unwrap(),
-                tokens: self.words.drain(..).collect(),
-            };
-
-            self.tokens.push(header);
-        } else {
-            let text = Line::Text(self.words.drain(..).collect());
-            self.tokens.push(text);
-        }
+        self.builder.end_line();
     }
 }
 
-impl Parser {
-    pub fn new() -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(builder: &'a mut Builder) -> Self {
+        let transitions = vec![
+            // start transitions
+            (
+                State::Start,
+                Event::Header,
+                State::Header,
+                (|b: &mut Builder| b.add_header()) as Action,
+            )
+                .into(),
+            (
+                State::Start,
+                Event::Text,
+                State::Text,
+                (|b: &mut Builder| b.add_text()) as Action,
+            )
+                .into(),
+            (
+                State::Start,
+                Event::StartBold,
+                State::Text,
+                (|b: &mut Builder| {
+                    b.add_text();
+                    b.start_bold()
+                }) as Action,
+            )
+                .into(),
+            // header transitions
+            (
+                State::Header,
+                Event::Text,
+                State::Text,
+                (|b: &mut Builder| b.add_text()) as Action,
+            )
+                .into(),
+            (
+                State::Header,
+                Event::StartLabel,
+                State::Text,
+                (|b: &mut Builder| b.start_label()) as Action,
+            )
+                .into(),
+            // text transitions
+            (
+                State::Text,
+                Event::Text,
+                State::Text,
+                (|b: &mut Builder| b.add_text()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::StartBold,
+                State::Text,
+                (|b: &mut Builder| b.start_bold()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::EndBold,
+                State::Text,
+                (|b: &mut Builder| b.end_bold()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::StartItalic,
+                State::Text,
+                (|b: &mut Builder| b.start_italic()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::EndItalic,
+                State::Text,
+                (|b: &mut Builder| b.end_italic()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::StartLabel,
+                State::Text,
+                (|b: &mut Builder| b.start_label()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::EndLabel,
+                State::Text,
+                (|b: &mut Builder| b.end_label()) as Action,
+            )
+                .into(),
+        ];
+
         Self {
-            words: Vec::new(),
-            header_level: None,
-            parsing_bold: false,
-            parsing_italic: false,
-            parsing_link: false,
-            tokens: Vec::new(),
+            transitions,
+            state: State::Start,
+            builder,
         }
     }
 
-    pub fn tokens(&self) -> &[Line] {
-        &self.tokens
+    pub fn parse(&mut self) -> Document {
+        self.builder.get_document()
+    }
+
+    pub fn handle_event(&mut self, event: Event) {
+        let transition = self
+            .transitions
+            .iter()
+            .find(|t| t.from == self.state && t.on == event)
+            .expect("No transition found");
+
+        self.state = transition.to.clone();
+        (transition.action)(self.builder);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{HeaderLevel, Line, Parser, Token};
-    use crate::Lexer;
+    #[test]
+    fn parse_header() {}
 
     #[test]
-    fn parse_header() {
-        let mut parser = Parser::new();
-        let mut lexer = Lexer::new(&mut parser);
-
-        lexer.lex("# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6");
-
-        assert_eq!(
-            parser.tokens(),
-            &[
-                Line::Header {
-                    level: HeaderLevel::H1,
-                    tokens: vec![Token::Regular("H1".to_string())],
-                },
-                Line::Header {
-                    level: HeaderLevel::H2,
-                    tokens: vec![Token::Regular("H2".to_string())],
-                },
-                Line::Header {
-                    level: HeaderLevel::H3,
-                    tokens: vec![Token::Regular("H3".to_string())],
-                },
-                Line::Header {
-                    level: HeaderLevel::H4,
-                    tokens: vec![Token::Regular("H4".to_string())],
-                },
-                Line::Header {
-                    level: HeaderLevel::H5,
-                    tokens: vec![Token::Regular("H5".to_string())],
-                },
-                Line::Header {
-                    level: HeaderLevel::H6,
-                    tokens: vec![Token::Regular("H6".to_string())],
-                },
-            ]
-        );
-    }
+    fn parse_bold() {}
 
     #[test]
-    fn parse_bold() {
-        let mut parser = Parser::new();
-        let mut lexer = Lexer::new(&mut parser);
-
-        lexer.lex("**bold**");
-        lexer.lex("regular **bold** word");
-        lexer.lex("and __another__ bold word");
-        lexer.lex("**bold with spaces**");
-
-        assert_eq!(
-            parser.tokens(),
-            &[
-                Line::Text(vec![Token::Bold(vec![Token::Regular("bold".to_string())])]),
-                Line::Text(vec![
-                    Token::Regular("regular".to_string()),
-                    Token::Bold(vec![Token::Regular("bold".to_string())]),
-                    Token::Regular("word".to_string())
-                ]),
-                Line::Text(vec![
-                    Token::Regular("and".to_string()),
-                    Token::Bold(vec![Token::Regular("another".to_string())]),
-                    Token::Regular("bold".to_string()),
-                    Token::Regular("word".to_string())
-                ]),
-                Line::Text(vec![Token::Bold(vec![
-                    Token::Regular("bold".to_string()),
-                    Token::Regular("with".to_string()),
-                    Token::Regular("spaces".to_string())
-                ])]),
-            ]
-        );
-    }
+    fn parse_italic() {}
 
     #[test]
-    fn parse_italic() {
-        let mut parser = Parser::new();
-        let mut lexer = Lexer::new(&mut parser);
-
-        lexer.lex("*italic*");
-        lexer.lex("regular *italic* word");
-        lexer.lex("and _another_ italic word");
-        lexer.lex("*italic with spaces*");
-
-        assert_eq!(
-            parser.tokens(),
-            &[
-                Line::Text(vec![Token::Italic(vec![Token::Regular(
-                    "italic".to_string()
-                )])]),
-                Line::Text(vec![
-                    Token::Regular("regular".to_string()),
-                    Token::Italic(vec![Token::Regular("italic".to_string())]),
-                    Token::Regular("word".to_string())
-                ]),
-                Line::Text(vec![
-                    Token::Regular("and".to_string()),
-                    Token::Italic(vec![Token::Regular("another".to_string())]),
-                    Token::Regular("italic".to_string()),
-                    Token::Regular("word".to_string())
-                ]),
-                Line::Text(vec![Token::Italic(vec![
-                    Token::Regular("italic".to_string()),
-                    Token::Regular("with".to_string()),
-                    Token::Regular("spaces".to_string())
-                ])]),
-            ]
-        );
-    }
-
-    #[test]
-    fn parse_link() {
-        let mut parser = Parser::new();
-        let mut lexer = Lexer::new(&mut parser);
-
-        lexer.lex("a regular [Link](https://a.com)");
-        lexer.lex("and [Another Link](https://b.com) with spaces");
-
-        assert_eq!(
-            parser.tokens(),
-            &[
-                Line::Text(vec![
-                    Token::Regular("a".to_string()),
-                    Token::Regular("regular".to_string()),
-                    Token::Link {
-                        label: vec![Token::Regular("Link".to_string())],
-                        url: "https://a.com".to_string()
-                    }
-                ]),
-                Line::Text(vec![
-                    Token::Regular("and".to_string()),
-                    Token::Link {
-                        label: vec![
-                            Token::Regular("Another".to_string()),
-                            Token::Regular("Link".to_string())
-                        ],
-                        url: "https://b.com".to_string()
-                    },
-                    Token::Regular("with".to_string()),
-                    Token::Regular("spaces".to_string())
-                ])
-            ]
-        );
-    }
+    fn parse_link() {}
 
     #[test]
     #[ignore]
-    fn parse_bold_link() {
-        let mut parser = Parser::new();
-        let mut lexer = Lexer::new(&mut parser);
-
-        lexer.lex("**[Bold](https://a.com)**");
-
-        assert_eq!(
-            parser.tokens(),
-            &[Line::Text(vec![Token::Bold(vec![Token::Link {
-                label: vec![Token::Regular("Bold".to_string()),],
-                url: "https://a.com".to_string()
-            }])])]
-        );
-    }
+    fn parse_bold_link() {}
 }

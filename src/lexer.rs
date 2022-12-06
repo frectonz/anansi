@@ -94,16 +94,16 @@ where
     }
 
     fn lex_italic(&mut self, word: &str) -> Option<()> {
-        if word.starts_with("*") || word.starts_with("_") {
+        if word.starts_with('*') || word.starts_with('_') {
             self.collector.begin_italic();
-            if word.ends_with("*") || word.ends_with("_") {
+            if word.ends_with('*') || word.ends_with('_') {
                 self.lex_word(&word[1..word.len() - 1]);
                 self.collector.end_italic();
             } else {
                 self.lex_word(&word[1..]);
             }
             Some(())
-        } else if word.ends_with("*") || word.ends_with("_") {
+        } else if word.ends_with('*') || word.ends_with('_') {
             self.lex_word(&word[..word.len() - 1]);
             self.collector.end_italic();
             Some(())
@@ -118,7 +118,7 @@ where
     }
 
     fn lex_label(&mut self, word: &str) -> Option<()> {
-        if word.starts_with("[") {
+        if let Some(word) = word.strip_prefix('[') {
             self.collector.begin_label();
 
             if word.contains("](") {
@@ -126,22 +126,22 @@ where
                 let label = parts.next().unwrap_or_default();
                 let url = parts.next().unwrap_or_default();
 
-                self.lex_word(&label[1..]);
+                self.lex_word(label);
                 self.collector.end_label();
 
-                if url.ends_with(").") {
-                    self.collector.url(&url[..url.len() - 2]);
+                if let Some(url) = url.strip_suffix(").") {
+                    self.collector.url(url);
                     self.collector.word(".");
-                } else if url.ends_with(")") {
-                    self.collector.url(&url[..url.len() - 1]);
+                } else if let Some(url) = url.strip_suffix(')') {
+                    self.collector.url(url);
                 }
             } else {
-                self.lex_word(&word[1..]);
+                self.lex_word(word);
             }
 
-            return Some(());
-        } else if word.contains("]") {
-            let mut parts = word.split("]");
+            Some(())
+        } else if word.contains(']') {
+            let mut parts = word.split(']');
             let label = parts.next().unwrap_or_default();
             let url = parts.next().unwrap_or_default();
 
@@ -151,11 +151,11 @@ where
             if url.ends_with(").") {
                 self.collector.url(&url[1..url.len() - 3]);
                 self.collector.word(".");
-            } else if url.ends_with(")") {
+            } else if url.ends_with(')') {
                 self.collector.url(&url[1..url.len() - 1]);
             }
 
-            return Some(());
+            Some(())
         } else {
             None
         }

@@ -1,12 +1,13 @@
-use md_parser::{Lexer, Parser};
+use md_parser::{Builder, Lexer, Parser};
 
 fn main() {
-    let mut parser = Parser::new();
+    let mut builder = Builder::new();
+    let mut parser = Parser::new(&mut builder);
     let mut lexer = Lexer::new(&mut parser);
 
     let content = std::fs::read_to_string("TEST.md").unwrap();
 
     lexer.lex(&content);
 
-    dbg!(parser.tokens());
+    dbg!(parser.parse());
 }

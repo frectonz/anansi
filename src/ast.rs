@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Bold(Vec<Token>),
     Italic(Vec<Token>),
@@ -6,16 +6,16 @@ pub enum Token {
     Link { label: Vec<Token>, url: String },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Line {
     Header {
         level: HeaderLevel,
         tokens: Vec<Token>,
     },
-    Text(Vec<Token>),
+    Paragraph(Vec<Token>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum HeaderLevel {
     H1,
     H2,
@@ -24,3 +24,5 @@ pub enum HeaderLevel {
     H5,
     H6,
 }
+
+pub type Document = Vec<Line>;
