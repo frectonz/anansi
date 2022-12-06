@@ -78,14 +78,19 @@ where
             } else {
                 self.lex_word(&word[2..]);
             }
-            return Some(());
+            Some(())
         } else if word.ends_with("**") || word.ends_with("__") {
             self.lex_word(&word[..word.len() - 2]);
             self.collector.end_bold();
-            return Some(());
+            Some(())
+        } else if word.ends_with("**.") || word.ends_with("__.") {
+            let word = format!("{}.", &word[..word.len() - 3]);
+            self.lex_word(&word);
+            self.collector.end_bold();
+            Some(())
+        } else {
+            None
         }
-
-        None
     }
 
     fn lex_italic(&mut self, word: &str) -> Option<()> {
@@ -102,6 +107,11 @@ where
             self.lex_word(&word[..word.len() - 1]);
             self.collector.end_italic();
             Some(())
+        } else if word.ends_with("*.") || word.ends_with("_.") {
+            let word = format!("{}.", &word[..word.len() - 2]);
+            self.lex_word(&word);
+            self.collector.end_italic();
+            Some(())
         } else {
             None
         }
@@ -116,11 +126,17 @@ where
                 let label = parts.next().unwrap_or_default();
                 let url = parts.next().unwrap_or_default();
 
-                self.collector.word(&label[1..]);
+                self.lex_word(&label[1..]);
                 self.collector.end_label();
-                self.collector.url(&url[..url.len() - 1]);
+
+                if url.ends_with(").") {
+                    self.collector.url(&url[..url.len() - 2]);
+                    self.collector.word(".");
+                } else if url.ends_with(")") {
+                    self.collector.url(&url[..url.len() - 1]);
+                }
             } else {
-                self.collector.word(&word[1..]);
+                self.lex_word(&word[1..]);
             }
 
             return Some(());
@@ -129,9 +145,15 @@ where
             let label = parts.next().unwrap_or_default();
             let url = parts.next().unwrap_or_default();
 
-            self.collector.word(label);
+            self.lex_word(label);
             self.collector.end_label();
-            self.collector.url(&url[1..url.len() - 1]);
+
+            if url.ends_with(").") {
+                self.collector.url(&url[1..url.len() - 3]);
+                self.collector.word(".");
+            } else if url.ends_with(")") {
+                self.collector.url(&url[1..url.len() - 1]);
+            }
 
             return Some(());
         } else {
@@ -183,7 +205,7 @@ mod tests {
         let mut lexer = Lexer::new(&mut mock);
         lexer.lex("regular **bold** word");
         lexer.lex("and __another__ bold word");
-        lexer.lex("**bold with spaces**");
+        lexer.lex("a **bold with spaces**.");
 
         assert_eq!(
             mock.tokens,
@@ -201,10 +223,11 @@ mod tests {
                 "word(bold)",
                 "word(word)",
                 "line_break",
+                "word(a)",
                 "begin_bold",
                 "word(bold)",
                 "word(with)",
-                "word(spaces)",
+                "word(spaces.)",
                 "end_bold",
                 "line_break"
             ]
@@ -217,7 +240,7 @@ mod tests {
         let mut lexer = Lexer::new(&mut mock);
         lexer.lex("regular *italic* word");
         lexer.lex("and _italic_ bold word");
-        lexer.lex("*italic with spaces*");
+        lexer.lex("a *italic with spaces*.");
 
         assert_eq!(
             mock.tokens,
@@ -235,10 +258,11 @@ mod tests {
                 "word(bold)",
                 "word(word)",
                 "line_break",
+                "word(a)",
                 "begin_italic",
                 "word(italic)",
                 "word(with)",
-                "word(spaces)",
+                "word(spaces.)",
                 "end_italic",
                 "line_break"
             ]
@@ -251,6 +275,7 @@ mod tests {
         let mut lexer = Lexer::new(&mut mock);
         lexer.lex("a regular [Link](https://a.com)");
         lexer.lex("and [Another Link](https://b.com) with spaces");
+        lexer.lex("a [Link](https://a.com).");
 
         assert_eq!(
             mock.tokens,
@@ -270,6 +295,13 @@ mod tests {
                 "url(https://b.com)",
                 "word(with)",
                 "word(spaces)",
+                "line_break",
+                "word(a)",
+                "begin_label",
+                "word(Link)",
+                "end_label",
+                "url(https://a.com)",
+                "word(.)",
                 "line_break"
             ]
         );
