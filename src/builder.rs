@@ -21,7 +21,7 @@ impl Builder {
         Self::default()
     }
 
-    pub(crate) fn get_document(&self) -> Document {
+    pub fn get_document(&self) -> Document {
         self.lines.clone()
     }
 
@@ -109,7 +109,9 @@ impl Builder {
             Some(Parsing::Label) => self.label_tokens.push(Token::Regular(word.to_string())),
             None => match self.lines.last_mut() {
                 Some(Line::Header { tokens, .. }) => tokens.push(Token::Regular(word.to_string())),
-                Some(Line::Paragraph(tokens, ..)) => tokens.push(Token::Regular(word.to_string())),
+                Some(Line::Paragraph(tokens, ..)) => {
+                    tokens.push(Token::Regular(word.to_string()));
+                }
                 None => {}
             },
         }
@@ -120,6 +122,5 @@ impl Builder {
         self.bold_tokens.clear();
         self.italic_tokens.clear();
         self.label_tokens.clear();
-        self.lines.push(Line::Paragraph(Vec::new()));
     }
 }

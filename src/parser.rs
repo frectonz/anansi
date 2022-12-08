@@ -1,4 +1,4 @@
-use crate::{Builder, Document, HeaderLevel, TokenCollector};
+use crate::{Builder, HeaderLevel, TokenCollector};
 
 struct Transition {
     from: State,
@@ -35,6 +35,8 @@ pub enum Event {
     EndItalic,
     StartLabel,
     EndLabel,
+    EndLine,
+    Word,
 }
 
 type Action = fn(&mut Builder);
@@ -105,11 +107,13 @@ impl<'a> TokenCollector for Parser<'a> {
     }
 
     fn word(&mut self, word: &str) {
+        self.handle_event(Event::Word);
         self.builder.add_word(word);
     }
 
     fn line_break(&mut self) {
-        self.builder.end_line();
+        eprintln!("line break");
+        self.handle_event(Event::EndLine);
     }
 }
 
@@ -128,7 +132,10 @@ impl<'a> Parser<'a> {
                 State::Start,
                 Event::Text,
                 State::Text,
-                (|b: &mut Builder| b.add_text()) as Action,
+                (|b: &mut Builder| {
+                    eprintln!("got text");
+                    b.add_text()
+                }) as Action,
             )
                 .into(),
             (
@@ -141,12 +148,36 @@ impl<'a> Parser<'a> {
                 }) as Action,
             )
                 .into(),
+            (
+                State::Start,
+                Event::StartItalic,
+                State::Text,
+                (|b: &mut Builder| {
+                    b.add_text();
+                    b.start_italic()
+                }) as Action,
+            )
+                .into(),
+            (
+                State::Start,
+                Event::Word,
+                State::Text,
+                (|b: &mut Builder| b.add_text()) as Action,
+            )
+                .into(),
             // header transitions
+            (
+                State::Header,
+                Event::EndLine,
+                State::Start,
+                (|b: &mut Builder| b.end_line()) as Action,
+            )
+                .into(),
             (
                 State::Header,
                 Event::Text,
                 State::Text,
-                (|b: &mut Builder| b.add_text()) as Action,
+                (|_: &mut Builder| {}) as Action,
             )
                 .into(),
             (
@@ -156,12 +187,40 @@ impl<'a> Parser<'a> {
                 (|b: &mut Builder| b.start_label()) as Action,
             )
                 .into(),
+            (
+                State::Header,
+                Event::Word,
+                State::Text,
+                (|_: &mut Builder| {}) as Action,
+            )
+                .into(),
             // text transitions
             (
                 State::Text,
                 Event::Text,
                 State::Text,
-                (|b: &mut Builder| b.add_text()) as Action,
+                (|_: &mut Builder| {}) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::Word,
+                State::Text,
+                (|_: &mut Builder| {}) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::Header,
+                State::Header,
+                (|b: &mut Builder| b.add_header()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::EndLine,
+                State::Start,
+                (|b: &mut Builder| b.end_line()) as Action,
             )
                 .into(),
             (
@@ -215,37 +274,17 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> Document {
-        self.builder.get_document()
-    }
-
     pub fn handle_event(&mut self, event: Event) {
+        dbg!(&self.state, &event);
         let transition = self
             .transitions
             .iter()
             .find(|t| t.from == self.state && t.on == event)
             .expect("No transition found");
+        dbg!(&transition.to);
+        eprintln!();
 
         self.state = transition.to.clone();
         (transition.action)(self.builder);
     }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn parse_header() {}
-
-    #[test]
-    fn parse_bold() {}
-
-    #[test]
-    fn parse_italic() {}
-
-    #[test]
-    fn parse_link() {}
-
-    #[test]
-    #[ignore]
-    fn parse_bold_link() {}
 }

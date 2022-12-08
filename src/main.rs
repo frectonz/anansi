@@ -9,5 +9,5 @@ fn main() {
 
     lexer.lex(&content);
 
-    dbg!(parser.parse());
+    dbg!(builder.get_document());
 }

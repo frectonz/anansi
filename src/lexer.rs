@@ -203,6 +203,7 @@ mod tests {
     fn lex_bold() {
         let mut mock = MockTokenCollector::default();
         let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("**bold**");
         lexer.lex("regular **bold** word");
         lexer.lex("and __another__ bold word");
         lexer.lex("a **bold with spaces**.");
@@ -210,6 +211,10 @@ mod tests {
         assert_eq!(
             mock.tokens,
             vec![
+                "begin_bold",
+                "word(bold)",
+                "end_bold",
+                "line_break",
                 "word(regular)",
                 "begin_bold",
                 "word(bold)",
