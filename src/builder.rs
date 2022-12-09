@@ -42,6 +42,13 @@ impl Builder {
         self.lines.push(Line::Paragraph(Vec::new()));
     }
 
+    pub(crate) fn add_image(&mut self) {
+        self.lines.push(Line::Image {
+            tokens: Vec::new(),
+            url: String::new(),
+        })
+    }
+
     pub(crate) fn start_bold(&mut self) {
         self.parsing.push(Parsing::Bold);
     }
@@ -51,6 +58,7 @@ impl Builder {
         match self.lines.last_mut() {
             Some(Line::Header { tokens, .. }) => tokens.push(bold),
             Some(Line::Paragraph(tokens, ..)) => tokens.push(bold),
+            Some(Line::Image { tokens, .. }) => tokens.push(bold),
             None => {}
         };
 
@@ -66,6 +74,7 @@ impl Builder {
         match self.lines.last_mut() {
             Some(Line::Header { tokens, .. }) => tokens.push(italic),
             Some(Line::Paragraph(tokens, ..)) => tokens.push(italic),
+            Some(Line::Image { tokens, .. }) => tokens.push(italic),
             None => {}
         };
 
@@ -78,6 +87,9 @@ impl Builder {
 
     pub(crate) fn end_label(&mut self) {
         self.parsing.pop();
+        if let Some(Line::Image { tokens, .. }) = self.lines.last_mut() {
+            tokens.append(&mut self.label_tokens.drain(..).collect::<Vec<_>>());
+        }
     }
 
     pub(crate) fn add_url(&mut self, u: &str) {
@@ -97,6 +109,9 @@ impl Builder {
             match self.lines.last_mut() {
                 Some(Line::Header { tokens, .. }) => tokens.push(link),
                 Some(Line::Paragraph(tokens, ..)) => tokens.push(link),
+                Some(Line::Image { url, .. }) => {
+                    *url = u.to_string();
+                }
                 None => {}
             };
         }
@@ -109,9 +124,8 @@ impl Builder {
             Some(Parsing::Label) => self.label_tokens.push(Token::Regular(word.to_string())),
             None => match self.lines.last_mut() {
                 Some(Line::Header { tokens, .. }) => tokens.push(Token::Regular(word.to_string())),
-                Some(Line::Paragraph(tokens, ..)) => {
-                    tokens.push(Token::Regular(word.to_string()));
-                }
+                Some(Line::Paragraph(tokens, ..)) => tokens.push(Token::Regular(word.to_string())),
+                Some(Line::Image { .. }) => {}
                 None => {}
             },
         }

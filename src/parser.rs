@@ -37,6 +37,7 @@ pub enum Event {
     EndLabel,
     EndLine,
     Word,
+    Image,
 }
 
 type Action = fn(&mut Builder);
@@ -111,8 +112,11 @@ impl<'a> TokenCollector for Parser<'a> {
         self.builder.add_word(word);
     }
 
+    fn image(&mut self) {
+        self.handle_event(Event::Image);
+    }
+
     fn line_break(&mut self) {
-        eprintln!("line break");
         self.handle_event(Event::EndLine);
     }
 }
@@ -163,6 +167,13 @@ impl<'a> Parser<'a> {
                 Event::Word,
                 State::Text,
                 (|b: &mut Builder| b.add_text()) as Action,
+            )
+                .into(),
+            (
+                State::Start,
+                Event::Image,
+                State::Text,
+                (|b: &mut Builder| b.add_image()) as Action,
             )
                 .into(),
             // header transitions

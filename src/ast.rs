@@ -13,6 +13,10 @@ pub enum Line {
         tokens: Vec<Token>,
     },
     Paragraph(Vec<Token>),
+    Image {
+        tokens: Vec<Token>,
+        url: String,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

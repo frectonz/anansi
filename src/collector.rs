@@ -18,6 +18,8 @@ pub trait TokenCollector {
     fn url(&mut self, url: &str);
     fn word(&mut self, text: &str);
 
+    fn image(&mut self);
+
     fn line_break(&mut self);
 }
 
@@ -85,6 +87,10 @@ pub mod tests {
 
         fn word(&mut self, text: &str) {
             self.tokens.push(format!("word({})", text));
+        }
+
+        fn image(&mut self) {
+            self.tokens.push("img".to_string());
         }
 
         fn line_break(&mut self) {

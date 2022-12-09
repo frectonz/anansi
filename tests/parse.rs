@@ -170,3 +170,19 @@ fn parse_bold_link() {
         }])])]
     );
 }
+
+#[test]
+fn lex_image() {
+    let mut builder = Builder::new();
+    let mut parser = Parser::new(&mut builder);
+    let mut lexer = Lexer::new(&mut parser);
+    lexer.lex("![image](https://www.a.com)");
+
+    assert_eq!(
+        builder.get_document(),
+        vec![Line::Image {
+            tokens: vec![Token::Regular("image".into())],
+            url: "https://www.a.com".to_string()
+        }]
+    );
+}

@@ -28,12 +28,10 @@ where
         let first_char = line.chars().next();
 
         match first_char {
-            Some('#') => {
-                self.lex_header(line);
-            }
+            Some('#') => self.lex_header(line),
+            Some('!') => self.lex_image(line),
             Some(_) => {
                 let words = line.split_whitespace();
-
                 for word in words {
                     self.lex_word(word);
                 }
@@ -159,6 +157,14 @@ where
         } else {
             None
         }
+    }
+
+    fn lex_image(&mut self, line: &str) {
+        let line = &line[1..];
+        self.collector.image();
+        line.split_whitespace().for_each(|word| {
+            self.lex_word(word);
+        });
     }
 }
 
@@ -408,6 +414,25 @@ mod tests {
                 "word(Header)",
                 "end_label",
                 "url(https://a.com)",
+                "line_break"
+            ]
+        );
+    }
+
+    #[test]
+    fn lex_image() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("![image](https://www.a.com)");
+
+        assert_eq!(
+            mock.tokens,
+            vec![
+                "img",
+                "begin_label",
+                "word(image)",
+                "end_label",
+                "url(https://www.a.com)",
                 "line_break"
             ]
         );
