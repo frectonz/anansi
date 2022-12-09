@@ -44,9 +44,13 @@ impl Builder {
 
     pub(crate) fn add_image(&mut self) {
         self.lines.push(Line::Image {
-            tokens: Vec::new(),
+            label: Vec::new(),
             url: String::new(),
         })
+    }
+
+    pub(crate) fn blank_line(&mut self) {
+        self.lines.push(Line::Blank);
     }
 
     pub(crate) fn start_bold(&mut self) {
@@ -58,7 +62,8 @@ impl Builder {
         match self.lines.last_mut() {
             Some(Line::Header { tokens, .. }) => tokens.push(bold),
             Some(Line::Paragraph(tokens, ..)) => tokens.push(bold),
-            Some(Line::Image { tokens, .. }) => tokens.push(bold),
+            Some(Line::Image { label, .. }) => label.push(bold),
+            Some(Line::Blank) => {}
             None => {}
         };
 
@@ -74,7 +79,8 @@ impl Builder {
         match self.lines.last_mut() {
             Some(Line::Header { tokens, .. }) => tokens.push(italic),
             Some(Line::Paragraph(tokens, ..)) => tokens.push(italic),
-            Some(Line::Image { tokens, .. }) => tokens.push(italic),
+            Some(Line::Image { label, .. }) => label.push(italic),
+            Some(Line::Blank) => {}
             None => {}
         };
 
@@ -87,7 +93,7 @@ impl Builder {
 
     pub(crate) fn end_label(&mut self) {
         self.parsing.pop();
-        if let Some(Line::Image { tokens, .. }) = self.lines.last_mut() {
+        if let Some(Line::Image { label: tokens, .. }) = self.lines.last_mut() {
             tokens.append(&mut self.label_tokens.drain(..).collect::<Vec<_>>());
         }
     }
@@ -112,6 +118,7 @@ impl Builder {
                 Some(Line::Image { url, .. }) => {
                     *url = u.to_string();
                 }
+                Some(Line::Blank) => {}
                 None => {}
             };
         }
@@ -126,6 +133,7 @@ impl Builder {
                 Some(Line::Header { tokens, .. }) => tokens.push(Token::Regular(word.to_string())),
                 Some(Line::Paragraph(tokens, ..)) => tokens.push(Token::Regular(word.to_string())),
                 Some(Line::Image { .. }) => {}
+                Some(Line::Blank) => {}
                 None => {}
             },
         }

@@ -176,6 +176,13 @@ impl<'a> Parser<'a> {
                 (|b: &mut Builder| b.add_image()) as Action,
             )
                 .into(),
+            (
+                State::Start,
+                Event::EndLine,
+                State::Start,
+                (|b: &mut Builder| b.blank_line()) as Action,
+            )
+                .into(),
             // header transitions
             (
                 State::Header,

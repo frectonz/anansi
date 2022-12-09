@@ -181,7 +181,7 @@ fn lex_image() {
     assert_eq!(
         builder.get_document(),
         vec![Line::Image {
-            tokens: vec![Token::Regular("image".into())],
+            label: vec![Token::Regular("image".into())],
             url: "https://www.a.com".to_string()
         }]
     );
