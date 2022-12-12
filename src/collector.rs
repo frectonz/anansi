@@ -12,6 +12,9 @@ pub trait TokenCollector {
     fn begin_italic(&mut self);
     fn end_italic(&mut self);
 
+    fn begin_inline_code(&mut self);
+    fn end_inline_code(&mut self);
+
     fn begin_label(&mut self);
     fn end_label(&mut self);
 
@@ -71,6 +74,14 @@ pub mod tests {
 
         fn end_italic(&mut self) {
             self.tokens.push("end_italic".to_string());
+        }
+
+        fn begin_inline_code(&mut self) {
+            self.tokens.push("begin_inline_code".to_string());
+        }
+
+        fn end_inline_code(&mut self) {
+            self.tokens.push("end_inline_code".to_string())
         }
 
         fn begin_label(&mut self) {

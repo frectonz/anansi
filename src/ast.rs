@@ -2,6 +2,7 @@
 pub enum Token {
     Bold(Vec<Token>),
     Italic(Vec<Token>),
+    InlineCode(Vec<Token>),
     Regular(String),
     Link { label: Vec<Token>, url: String },
 }

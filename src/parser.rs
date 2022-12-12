@@ -33,6 +33,8 @@ pub enum Event {
     EndBold,
     StartItalic,
     EndItalic,
+    StartInlineCode,
+    EndInlineCode,
     StartLabel,
     EndLabel,
     EndLine,
@@ -93,6 +95,14 @@ impl<'a> TokenCollector for Parser<'a> {
 
     fn end_italic(&mut self) {
         self.handle_event(Event::EndItalic);
+    }
+
+    fn begin_inline_code(&mut self) {
+        self.handle_event(Event::StartInlineCode);
+    }
+
+    fn end_inline_code(&mut self) {
+        self.handle_event(Event::EndInlineCode);
     }
 
     fn begin_label(&mut self) {
@@ -159,6 +169,16 @@ impl<'a> Parser<'a> {
                 (|b: &mut Builder| {
                     b.add_text();
                     b.start_italic()
+                }) as Action,
+            )
+                .into(),
+            (
+                State::Start,
+                Event::StartInlineCode,
+                State::Text,
+                (|b: &mut Builder| {
+                    b.add_text();
+                    b.start_inline_code();
                 }) as Action,
             )
                 .into(),
@@ -267,6 +287,20 @@ impl<'a> Parser<'a> {
                 Event::EndItalic,
                 State::Text,
                 (|b: &mut Builder| b.end_italic()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::StartInlineCode,
+                State::Text,
+                (|b: &mut Builder| b.start_inline_code()) as Action,
+            )
+                .into(),
+            (
+                State::Text,
+                Event::EndInlineCode,
+                State::Text,
+                (|b: &mut Builder| b.end_inline_code()) as Action,
             )
                 .into(),
             (

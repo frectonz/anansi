@@ -186,3 +186,43 @@ fn lex_image() {
         }]
     );
 }
+
+#[test]
+fn parse_inline_code() {
+    let mut builder = Builder::new();
+    let mut parser = Parser::new(&mut builder);
+    let mut lexer = Lexer::new(&mut parser);
+
+    lexer.lex("regular `code` word");
+    lexer.lex("a `code with spaces`.");
+
+    use Line::*;
+    use Token::*;
+    assert_eq!(
+        builder.get_document(),
+        vec![
+            Paragraph(
+                [
+                    Regular("regular".into()),
+                    InlineCode([Regular("code".into())].to_vec()),
+                    Regular("word".into())
+                ]
+                .to_vec()
+            ),
+            Paragraph(
+                [
+                    Regular("a".into()),
+                    InlineCode(
+                        [
+                            Regular("code".into()),
+                            Regular("with".into()),
+                            Regular("spaces.".into())
+                        ]
+                        .to_vec()
+                    )
+                ]
+                .to_vec()
+            )
+        ]
+    );
+}

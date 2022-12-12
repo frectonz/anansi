@@ -6,6 +6,7 @@ pub struct Builder {
     parsing: Vec<Parsing>,
     bold_tokens: Vec<Token>,
     italic_tokens: Vec<Token>,
+    inline_code_tokens: Vec<Token>,
     label_tokens: Vec<Token>,
 }
 
@@ -14,6 +15,7 @@ enum Parsing {
     Bold,
     Italic,
     Label,
+    InlineCode,
 }
 
 impl Builder {
@@ -87,6 +89,23 @@ impl Builder {
         self.parsing.pop();
     }
 
+    pub(crate) fn start_inline_code(&mut self) {
+        self.parsing.push(Parsing::InlineCode);
+    }
+
+    pub(crate) fn end_inline_code(&mut self) {
+        let inline_code = Token::InlineCode(self.inline_code_tokens.drain(..).collect());
+        match self.lines.last_mut() {
+            Some(Line::Header { tokens, .. }) => tokens.push(inline_code),
+            Some(Line::Paragraph(tokens, ..)) => tokens.push(inline_code),
+            Some(Line::Image { label, .. }) => label.push(inline_code),
+            Some(Line::Blank) => {}
+            None => {}
+        };
+
+        self.parsing.pop();
+    }
+
     pub(crate) fn start_label(&mut self) {
         self.parsing.push(Parsing::Label);
     }
@@ -129,6 +148,9 @@ impl Builder {
             Some(Parsing::Bold) => self.bold_tokens.push(Token::Regular(word.to_string())),
             Some(Parsing::Italic) => self.italic_tokens.push(Token::Regular(word.to_string())),
             Some(Parsing::Label) => self.label_tokens.push(Token::Regular(word.to_string())),
+            Some(Parsing::InlineCode) => self
+                .inline_code_tokens
+                .push(Token::Regular(word.to_string())),
             None => match self.lines.last_mut() {
                 Some(Line::Header { tokens, .. }) => tokens.push(Token::Regular(word.to_string())),
                 Some(Line::Paragraph(tokens, ..)) => tokens.push(Token::Regular(word.to_string())),

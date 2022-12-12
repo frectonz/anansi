@@ -62,6 +62,7 @@ where
         self.lex_bold(word)
             .or_else(|| self.lex_italic(word))
             .or_else(|| self.lex_label(word))
+            .or_else(|| self.lex_inline_code(word))
             .unwrap_or_else(|| {
                 self.collector.word(word);
             });
@@ -109,6 +110,30 @@ where
             let word = format!("{}.", &word[..word.len() - 2]);
             self.lex_word(&word);
             self.collector.end_italic();
+            Some(())
+        } else {
+            None
+        }
+    }
+
+    fn lex_inline_code(&mut self, word: &str) -> Option<()> {
+        if let Some(word) = word.strip_prefix('`') {
+            self.collector.begin_inline_code();
+            if let Some(word) = word.strip_suffix('`') {
+                self.lex_word(word);
+                self.collector.end_inline_code();
+            } else {
+                self.lex_word(word);
+            }
+            Some(())
+        } else if let Some(word) = word.strip_suffix('`') {
+            self.lex_word(word);
+            self.collector.end_inline_code();
+            Some(())
+        } else if let Some(word) = word.strip_suffix("`.") {
+            let word = word.to_owned() + ".";
+            self.lex_word(&word);
+            self.collector.end_inline_code();
             Some(())
         } else {
             None
@@ -433,6 +458,33 @@ mod tests {
                 "word(image)",
                 "end_label",
                 "url(https://www.a.com)",
+                "line_break"
+            ]
+        );
+    }
+
+    #[test]
+    fn lex_inline_code() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("regular `code` word");
+        lexer.lex("a `code with spaces`.");
+
+        assert_eq!(
+            mock.tokens,
+            vec![
+                "word(regular)",
+                "begin_inline_code",
+                "word(code)",
+                "end_inline_code",
+                "word(word)",
+                "line_break",
+                "word(a)",
+                "begin_inline_code",
+                "word(code)",
+                "word(with)",
+                "word(spaces.)",
+                "end_inline_code",
                 "line_break"
             ]
         );
