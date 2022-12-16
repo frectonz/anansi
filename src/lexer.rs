@@ -59,10 +59,10 @@ where
     }
 
     fn lex_word(&mut self, word: &str) {
-        self.lex_bold(word)
+        self.lex_inline_code(word)
+            .or_else(|| self.lex_bold(word))
             .or_else(|| self.lex_italic(word))
             .or_else(|| self.lex_label(word))
-            .or_else(|| self.lex_inline_code(word))
             .unwrap_or_else(|| {
                 self.collector.word(word);
             });
@@ -120,19 +120,19 @@ where
         if let Some(word) = word.strip_prefix('`') {
             self.collector.begin_inline_code();
             if let Some(word) = word.strip_suffix('`') {
-                self.lex_word(word);
+                self.collector.word(word);
                 self.collector.end_inline_code();
             } else {
-                self.lex_word(word);
+                self.collector.word(word);
             }
             Some(())
         } else if let Some(word) = word.strip_suffix('`') {
-            self.lex_word(word);
+            self.collector.word(word);
             self.collector.end_inline_code();
             Some(())
         } else if let Some(word) = word.strip_suffix("`.") {
             let word = word.to_owned() + ".";
-            self.lex_word(&word);
+            self.collector.word(&word);
             self.collector.end_inline_code();
             Some(())
         } else {
@@ -487,6 +487,26 @@ mod tests {
                 "end_inline_code",
                 "line_break"
             ]
+        );
+    }
+
+    #[test]
+    fn lex_inline_bold() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("an `inline **bold**`");
+
+        assert_eq!(
+            mock.tokens.join(" "),
+            vec![
+                "word(an)",
+                "begin_inline_code",
+                "word(inline)",
+                "word(**bold**)",
+                "end_inline_code",
+                "line_break"
+            ]
+            .join(" ")
         );
     }
 }
