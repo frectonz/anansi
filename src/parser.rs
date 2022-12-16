@@ -327,14 +327,11 @@ impl<'a> Parser<'a> {
     }
 
     pub fn handle_event(&mut self, event: Event) {
-        dbg!(&self.state, &event);
         let transition = self
             .transitions
             .iter()
             .find(|t| t.from == self.state && t.on == event)
             .expect("No transition found");
-        dbg!(&transition.to);
-        eprintln!();
 
         self.state = transition.to.clone();
         (transition.action)(self.builder);
