@@ -7,3 +7,13 @@ And some **bold with spaces**.
 Bold link to youtube **[YouTube](https://www.youtube.com)**
 
 ![image](https//image.com)
+
+***strong emph***
+
+***strong** in emph*
+
+***emph* in strong**
+
+**in strong *emph***
+
+*in emph **strong***
