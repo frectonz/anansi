@@ -8,10 +8,10 @@ use nom::{
 };
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Token {
-    Bold(Vec<Token>),
-    Italic(Vec<Token>),
+    Strong(Vec<Token>),
+    Emphasis(Vec<Token>),
     InlineCode(Vec<String>),
     Regular(String),
     Link { label: Vec<Token>, url: String },
@@ -21,28 +21,30 @@ impl FromStr for Token {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse_token(s).map(|(_, v)| v).map_err(|e| {
-            println!("{}", e);
-        })
+        parse_token(s).map(|(_, v)| v).map_err(|_| ())
     }
 }
 
 fn parse_token(input: &str) -> IResult<&str, Token> {
     let (input, token) = alt((
         parse_inline_code,
-        parse_bold,
-        // parse_italic,
-        // parse_link,
+        parse_strong,
+        parse_emphasis,
         parse_regular,
     ))(input)?;
-
     Ok((input, token))
 }
 
-fn parse_bold(input: &str) -> IResult<&str, Token> {
+fn parse_strong(input: &str) -> IResult<&str, Token> {
     let (input, words) = delimited(tag("**"), take_until("**"), tag("**"))(input)?;
     let (_, tokens) = parse_tokens_split_with_space(words)?;
-    Ok((input, Token::Bold(tokens)))
+    Ok((input, Token::Strong(tokens)))
+}
+
+fn parse_emphasis(input: &str) -> IResult<&str, Token> {
+    let (input, words) = delimited(tag("*"), take_until("*"), tag("*"))(input)?;
+    let (_, tokens) = parse_tokens_split_with_space(words)?;
+    Ok((input, Token::Emphasis(tokens)))
 }
 
 fn parse_regular(input: &str) -> IResult<&str, Token> {
@@ -91,12 +93,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_bold() {
+    fn parse_strong() {
         let token = "**hello world**".parse::<Token>().unwrap();
 
         assert_eq!(
             token,
-            Token::Bold(vec![
+            Token::Strong(vec![
                 Token::Regular("hello".to_string()),
                 Token::Regular("world".to_string())
             ])
@@ -104,14 +106,43 @@ mod tests {
     }
 
     #[test]
-    fn parse_bold_inline() {
+    fn parse_strong_inline() {
         let token = "**`bold inline code`**".parse::<Token>().unwrap();
 
         use Token::*;
         assert_eq!(
             token,
-            Bold(vec![InlineCode(vec![
+            Strong(vec![InlineCode(vec![
                 "bold".to_string(),
+                "inline".to_string(),
+                "code".to_string()
+            ])])
+        );
+    }
+
+    #[test]
+    fn parse_emphasis() {
+        let token = "*hello world*".parse::<Token>().unwrap();
+
+        use Token::*;
+        assert_eq!(
+            token,
+            Emphasis(vec![
+                Regular("hello".to_string()),
+                Regular("world".to_string()),
+            ])
+        );
+    }
+
+    #[test]
+    fn parse_emphasis_inline() {
+        let token = "*`italic inline code`*".parse::<Token>().unwrap();
+
+        use Token::*;
+        assert_eq!(
+            token,
+            Emphasis(vec![InlineCode(vec![
+                "italic".to_string(),
                 "inline".to_string(),
                 "code".to_string()
             ])])
