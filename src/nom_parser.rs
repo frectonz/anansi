@@ -15,7 +15,13 @@ pub enum Token {
     StrongEmphasis(Vec<Token>),
     InlineCode(Vec<String>),
     Regular(String),
-    Link { label: Vec<Token>, url: String },
+    Link { url: Url, label: Vec<Token> },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Url {
+    Inline { url: String, title: Option<String> },
+    Reference(String),
 }
 
 impl FromStr for Token {
@@ -32,9 +38,47 @@ fn parse_token(input: &str) -> IResult<&str, Token> {
         parse_strong_emphasis,
         parse_strong,
         parse_emphasis,
+        parse_link,
         parse_regular,
     ))(input)?;
     Ok((input, token))
+}
+
+fn parse_link(input: &str) -> IResult<&str, Token> {
+    let (input, label) = delimited(tag("["), take_until("]"), tag("]"))(input)?;
+    let (_, label) = parse_tokens_split_with_space(label)?;
+
+    let (input, url) = if input.starts_with('(') {
+        let url_end = alt((tag(" "), tag(")")));
+        let take_until_url_end = alt((take_until(" "), take_until(")")));
+        let (input, url) = delimited(tag("("), take_until_url_end, url_end)(input)?;
+        (
+            input,
+            Url::Inline {
+                url: url.to_string(),
+                title: None,
+            },
+        )
+    } else {
+        let (input, url) = delimited(alt((tag("["), tag(" ["))), take_until("]"), tag("]"))(input)?;
+        (input, Url::Reference(url.to_string()))
+    };
+
+    let title = if input.is_empty() {
+        None
+    } else {
+        let (input, _) = tag("\"")(input)?;
+        let (_, title) = take_until("\"")(input)?;
+
+        Some(title.to_string())
+    };
+
+    let url = match url {
+        Url::Inline { url, .. } => Url::Inline { url, title },
+        url => url,
+    };
+
+    Ok((input, Token::Link { url, label }))
 }
 
 fn parse_strong_emphasis(input: &str) -> IResult<&str, Token> {
@@ -88,7 +132,7 @@ fn parse_word(input: &str) -> IResult<&str, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::Token;
+    use super::{Token, Url};
 
     #[test]
     fn parse_inline_code() {
@@ -184,6 +228,81 @@ mod tests {
                 "inline".to_string(),
                 "code".to_string()
             ])])
+        );
+    }
+
+    #[test]
+    fn parse_link_with_title() {
+        let token = "[hello world](https://example.com \"title\")"
+            .parse::<Token>()
+            .unwrap();
+
+        use Token::*;
+        assert_eq!(
+            token,
+            Token::Link {
+                label: vec![Regular("hello".to_string()), Regular("world".to_string())],
+                url: Url::Inline {
+                    url: "https://example.com".to_string(),
+                    title: "title".to_string().into()
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn parse_link() {
+        let token = "[hello world](https://example.com)"
+            .parse::<Token>()
+            .unwrap();
+
+        use Token::*;
+        assert_eq!(
+            token,
+            Token::Link {
+                label: vec![Regular("hello".to_string()), Regular("world".to_string())],
+                url: Url::Inline {
+                    url: "https://example.com".to_string(),
+                    title: None
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn parse_link_with_reference() {
+        let token1 = "[hello world][ref]".parse::<Token>().unwrap();
+        let token2 = "[hello world] [ref]".parse::<Token>().unwrap();
+
+        use Token::*;
+        let parsed_token = Token::Link {
+            label: vec![Regular("hello".to_string()), Regular("world".to_string())],
+            url: Url::Reference("ref".to_string()),
+        };
+
+        assert_eq!(token1, parsed_token);
+        assert_eq!(token2, parsed_token);
+    }
+
+    #[test]
+    fn parse_bold_link() {
+        let token = "[**hello world**](https://example.com)"
+            .parse::<Token>()
+            .unwrap();
+
+        use Token::*;
+        assert_eq!(
+            token,
+            Token::Link {
+                label: vec![Strong(vec![
+                    Regular("hello".to_string()),
+                    Regular("world".to_string())
+                ])],
+                url: Url::Inline {
+                    url: "https://example.com".to_string(),
+                    title: None
+                }
+            }
         );
     }
 }
