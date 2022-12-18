@@ -2,6 +2,7 @@ mod ast;
 mod builder;
 mod collector;
 mod lexer;
+mod nom_parser;
 mod parser;
 
 pub use ast::*;
