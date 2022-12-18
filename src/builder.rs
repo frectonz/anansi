@@ -60,14 +60,34 @@ impl Builder {
     }
 
     pub(crate) fn end_bold(&mut self) {
-        let bold = Token::Bold(self.bold_tokens.drain(..).collect());
-        match self.lines.last_mut() {
-            Some(Line::Header { tokens, .. }) => tokens.push(bold),
-            Some(Line::Paragraph(tokens, ..)) => tokens.push(bold),
-            Some(Line::Image { label, .. }) => label.push(bold),
-            Some(Line::Blank) => {}
-            None => {}
+        let tokens: Vec<Token> = self.bold_tokens.drain(..).collect();
+
+        let wrap_with_bold = |tokens: &mut Vec<Token>| {
+            if let Some(t) = tokens.last_mut() {
+                if let Token::Italic(_) = t {
+                    *t = Token::Bold(vec![t.clone()]);
+                }
+            }
         };
+
+        if tokens.is_empty() {
+            match self.lines.last_mut() {
+                Some(Line::Header { tokens, .. }) => wrap_with_bold(tokens),
+                Some(Line::Paragraph(tokens, ..)) => wrap_with_bold(tokens),
+                Some(Line::Image { label, .. }) => wrap_with_bold(label),
+                Some(Line::Blank) => {}
+                None => {}
+            };
+        } else {
+            let bold = Token::Bold(tokens);
+            match self.lines.last_mut() {
+                Some(Line::Header { tokens, .. }) => tokens.push(bold),
+                Some(Line::Paragraph(tokens, ..)) => tokens.push(bold),
+                Some(Line::Image { label, .. }) => label.push(bold),
+                Some(Line::Blank) => {}
+                None => {}
+            };
+        }
 
         self.parsing.pop();
     }

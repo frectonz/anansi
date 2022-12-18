@@ -226,3 +226,22 @@ fn parse_inline_code() {
         ]
     );
 }
+
+#[test]
+fn parse_bold_italic() {
+    let mut builder = Builder::new();
+    let mut parser = Parser::new(&mut builder);
+    let mut lexer = Lexer::new(&mut parser);
+
+    lexer.lex("***strong emph***");
+
+    use Line::*;
+    use Token::*;
+    assert_eq!(
+        builder.get_document(),
+        vec![Paragraph(vec![Bold(vec![Italic(vec![
+            Regular("strong".into()),
+            Regular("emph".into())
+        ])])])]
+    );
+}

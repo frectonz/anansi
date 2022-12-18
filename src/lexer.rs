@@ -509,4 +509,24 @@ mod tests {
             .join(" ")
         );
     }
+
+    #[test]
+    fn bold_italic() {
+        let mut mock = MockTokenCollector::default();
+        let mut lexer = Lexer::new(&mut mock);
+        lexer.lex("***bold italic***");
+
+        assert_eq!(
+            mock.tokens,
+            vec![
+                "begin_bold",
+                "begin_italic",
+                "word(bold)",
+                "word(italic)",
+                "end_italic",
+                "end_bold",
+                "line_break"
+            ]
+        );
+    }
 }
