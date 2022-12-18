@@ -12,6 +12,7 @@ use std::str::FromStr;
 pub enum Token {
     Strong(Vec<Token>),
     Emphasis(Vec<Token>),
+    StrongEmphasis(Vec<Token>),
     InlineCode(Vec<String>),
     Regular(String),
     Link { label: Vec<Token>, url: String },
@@ -28,11 +29,18 @@ impl FromStr for Token {
 fn parse_token(input: &str) -> IResult<&str, Token> {
     let (input, token) = alt((
         parse_inline_code,
+        parse_strong_emphasis,
         parse_strong,
         parse_emphasis,
         parse_regular,
     ))(input)?;
     Ok((input, token))
+}
+
+fn parse_strong_emphasis(input: &str) -> IResult<&str, Token> {
+    let (input, words) = delimited(tag("***"), take_until("***"), tag("***"))(input)?;
+    let (_, tokens) = parse_tokens_split_with_space(words)?;
+    Ok((input, Token::StrongEmphasis(tokens)))
 }
 
 fn parse_strong(input: &str) -> IResult<&str, Token> {
@@ -142,6 +150,36 @@ mod tests {
         assert_eq!(
             token,
             Emphasis(vec![InlineCode(vec![
+                "italic".to_string(),
+                "inline".to_string(),
+                "code".to_string()
+            ])])
+        );
+    }
+
+    #[test]
+    fn parse_strong_emphasis() {
+        let token = "***hello world***".parse::<Token>().unwrap();
+
+        use Token::*;
+        assert_eq!(
+            token,
+            StrongEmphasis(vec![
+                Regular("hello".to_string()),
+                Regular("world".to_string()),
+            ])
+        );
+    }
+
+    #[test]
+    fn parse_strong_emphasis_inline() {
+        let token = "***`bold italic inline code`***".parse::<Token>().unwrap();
+
+        use Token::*;
+        assert_eq!(
+            token,
+            StrongEmphasis(vec![InlineCode(vec![
+                "bold".to_string(),
                 "italic".to_string(),
                 "inline".to_string(),
                 "code".to_string()
