@@ -14,8 +14,8 @@ pub struct Builder {
 enum Parsing {
     Bold,
     Italic,
-    Label,
-    InlineCode,
+    _Label,
+    _InlineCode,
 }
 
 impl Builder {
@@ -27,31 +27,25 @@ impl Builder {
         self.lines.clone()
     }
 
-    pub(crate) fn add_header(&mut self) {
+    pub(crate) fn add_header(&mut self, level: HeaderLevel) {
         self.lines.push(Line::Header {
-            level: HeaderLevel::H1,
+            level,
             tokens: Vec::new(),
         });
-    }
-
-    pub(crate) fn set_header_level(&mut self, l: HeaderLevel) {
-        if let Some(Line::Header { level, .. }) = self.lines.last_mut() {
-            *level = l;
-        }
     }
 
     pub(crate) fn add_text(&mut self) {
         self.lines.push(Line::Paragraph(Vec::new()));
     }
 
-    pub(crate) fn add_image(&mut self) {
+    pub(crate) fn _add_image(&mut self) {
         self.lines.push(Line::Image {
             label: Vec::new(),
             url: String::new(),
         })
     }
 
-    pub(crate) fn blank_line(&mut self) {
+    pub(crate) fn _blank_line(&mut self) {
         self.lines.push(Line::Blank);
     }
 
@@ -109,11 +103,11 @@ impl Builder {
         self.parsing.pop();
     }
 
-    pub(crate) fn start_inline_code(&mut self) {
-        self.parsing.push(Parsing::InlineCode);
+    pub(crate) fn _start_inline_code(&mut self) {
+        self.parsing.push(Parsing::_InlineCode);
     }
 
-    pub(crate) fn end_inline_code(&mut self) {
+    pub(crate) fn _end_inline_code(&mut self) {
         let inline_code = Token::InlineCode(self.inline_code_tokens.drain(..).collect());
         match self.lines.last_mut() {
             Some(Line::Header { tokens, .. }) => tokens.push(inline_code),
@@ -126,18 +120,18 @@ impl Builder {
         self.parsing.pop();
     }
 
-    pub(crate) fn start_label(&mut self) {
-        self.parsing.push(Parsing::Label);
+    pub(crate) fn _start_label(&mut self) {
+        self.parsing.push(Parsing::_Label);
     }
 
-    pub(crate) fn end_label(&mut self) {
+    pub(crate) fn _end_label(&mut self) {
         self.parsing.pop();
         if let Some(Line::Image { label: tokens, .. }) = self.lines.last_mut() {
             tokens.append(&mut self.label_tokens.drain(..).collect::<Vec<_>>());
         }
     }
 
-    pub(crate) fn add_url(&mut self, u: &str) {
+    pub(crate) fn _add_url(&mut self, u: &str) {
         let label = self.label_tokens.drain(..).collect();
         let link = Token::Link {
             label,
@@ -167,8 +161,8 @@ impl Builder {
         match self.parsing.last() {
             Some(Parsing::Bold) => self.bold_tokens.push(Token::Regular(word.to_string())),
             Some(Parsing::Italic) => self.italic_tokens.push(Token::Regular(word.to_string())),
-            Some(Parsing::Label) => self.label_tokens.push(Token::Regular(word.to_string())),
-            Some(Parsing::InlineCode) => self
+            Some(Parsing::_Label) => self.label_tokens.push(Token::Regular(word.to_string())),
+            Some(Parsing::_InlineCode) => self
                 .inline_code_tokens
                 .push(Token::Regular(word.to_string())),
             None => match self.lines.last_mut() {
