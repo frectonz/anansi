@@ -6,7 +6,6 @@ pub struct Builder {
     parsing: Vec<Parsing>,
     bold_tokens: Vec<Token>,
     italic_tokens: Vec<Token>,
-    inline_code_tokens: Vec<Token>,
     label_tokens: Vec<Token>,
 }
 
@@ -14,8 +13,6 @@ pub struct Builder {
 enum Parsing {
     Bold,
     Italic,
-    _Label,
-    _InlineCode,
 }
 
 impl Builder {
@@ -36,17 +33,6 @@ impl Builder {
 
     pub(crate) fn add_text(&mut self) {
         self.lines.push(Line::Paragraph(Vec::new()));
-    }
-
-    pub(crate) fn _add_image(&mut self) {
-        self.lines.push(Line::Image {
-            label: Vec::new(),
-            url: String::new(),
-        })
-    }
-
-    pub(crate) fn _blank_line(&mut self) {
-        self.lines.push(Line::Blank);
     }
 
     pub(crate) fn start_bold(&mut self) {
@@ -103,68 +89,10 @@ impl Builder {
         self.parsing.pop();
     }
 
-    pub(crate) fn _start_inline_code(&mut self) {
-        self.parsing.push(Parsing::_InlineCode);
-    }
-
-    pub(crate) fn _end_inline_code(&mut self) {
-        let inline_code = Token::InlineCode(self.inline_code_tokens.drain(..).collect());
-        match self.lines.last_mut() {
-            Some(Line::Header { tokens, .. }) => tokens.push(inline_code),
-            Some(Line::Paragraph(tokens, ..)) => tokens.push(inline_code),
-            Some(Line::Image { label, .. }) => label.push(inline_code),
-            Some(Line::Blank) => {}
-            None => {}
-        };
-
-        self.parsing.pop();
-    }
-
-    pub(crate) fn _start_label(&mut self) {
-        self.parsing.push(Parsing::_Label);
-    }
-
-    pub(crate) fn _end_label(&mut self) {
-        self.parsing.pop();
-        if let Some(Line::Image { label: tokens, .. }) = self.lines.last_mut() {
-            tokens.append(&mut self.label_tokens.drain(..).collect::<Vec<_>>());
-        }
-    }
-
-    pub(crate) fn _add_url(&mut self, u: &str) {
-        let label = self.label_tokens.drain(..).collect();
-        let link = Token::Link {
-            label,
-            url: u.to_string(),
-        };
-
-        if let Some(parse_type) = self.parsing.last() {
-            match parse_type {
-                Parsing::Bold => self.bold_tokens.push(link),
-                Parsing::Italic => self.italic_tokens.push(link),
-                _ => {}
-            };
-        } else {
-            match self.lines.last_mut() {
-                Some(Line::Header { tokens, .. }) => tokens.push(link),
-                Some(Line::Paragraph(tokens, ..)) => tokens.push(link),
-                Some(Line::Image { url, .. }) => {
-                    *url = u.to_string();
-                }
-                Some(Line::Blank) => {}
-                None => {}
-            };
-        }
-    }
-
     pub(crate) fn add_word(&mut self, word: &str) {
         match self.parsing.last() {
             Some(Parsing::Bold) => self.bold_tokens.push(Token::Regular(word.to_string())),
             Some(Parsing::Italic) => self.italic_tokens.push(Token::Regular(word.to_string())),
-            Some(Parsing::_Label) => self.label_tokens.push(Token::Regular(word.to_string())),
-            Some(Parsing::_InlineCode) => self
-                .inline_code_tokens
-                .push(Token::Regular(word.to_string())),
             None => match self.lines.last_mut() {
                 Some(Line::Header { tokens, .. }) => tokens.push(Token::Regular(word.to_string())),
                 Some(Line::Paragraph(tokens, ..)) => tokens.push(Token::Regular(word.to_string())),
