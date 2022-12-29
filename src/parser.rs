@@ -33,7 +33,7 @@ impl<'a> Parser<'a> {
                 }
 
                 Event::Start(Tag::Paragraph) => {
-                    self.builder.add_text();
+                    self.builder.start_paragraph();
                 }
                 Event::End(Tag::Paragraph) => {
                     self.builder.end_line();

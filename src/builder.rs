@@ -3,16 +3,7 @@ use crate::{Document, HeaderLevel, Line, Token};
 #[derive(Debug, Default)]
 pub struct Builder {
     lines: Vec<Line>,
-    parsing: Vec<Parsing>,
-    bold_tokens: Vec<Token>,
-    italic_tokens: Vec<Token>,
-    label_tokens: Vec<Token>,
-}
-
-#[derive(Debug)]
-enum Parsing {
-    Bold,
-    Italic,
+    line: Option<Line>,
 }
 
 impl Builder {
@@ -25,88 +16,61 @@ impl Builder {
     }
 
     pub(crate) fn add_header(&mut self, level: HeaderLevel) {
-        self.lines.push(Line::Header {
+        println!("add_header: {:?}", level);
+        self.line = Some(Line::Header {
             level,
             tokens: Vec::new(),
         });
     }
 
-    pub(crate) fn add_text(&mut self) {
-        self.lines.push(Line::Paragraph(Vec::new()));
+    pub(crate) fn start_paragraph(&mut self) {
+        self.line = Some(Line::Paragraph(Vec::new()));
     }
 
     pub(crate) fn start_bold(&mut self) {
-        self.parsing.push(Parsing::Bold);
-    }
-
-    pub(crate) fn end_bold(&mut self) {
-        let tokens: Vec<Token> = self.bold_tokens.drain(..).collect();
-
-        let wrap_with_bold = |tokens: &mut Vec<Token>| {
-            if let Some(t) = tokens.last_mut() {
-                if let Token::Italic(_) = t {
-                    *t = Token::Bold(vec![t.clone()]);
-                }
-            }
-        };
-
-        if tokens.is_empty() {
-            match self.lines.last_mut() {
-                Some(Line::Header { tokens, .. }) => wrap_with_bold(tokens),
-                Some(Line::Paragraph(tokens, ..)) => wrap_with_bold(tokens),
-                Some(Line::Image { label, .. }) => wrap_with_bold(label),
-                Some(Line::Blank) => {}
-                None => {}
-            };
-        } else {
-            let bold = Token::Bold(tokens);
-            match self.lines.last_mut() {
-                Some(Line::Header { tokens, .. }) => tokens.push(bold),
-                Some(Line::Paragraph(tokens, ..)) => tokens.push(bold),
-                Some(Line::Image { label, .. }) => label.push(bold),
-                Some(Line::Blank) => {}
-                None => {}
-            };
-        }
-
-        self.parsing.pop();
-    }
-
-    pub(crate) fn start_italic(&mut self) {
-        self.parsing.push(Parsing::Italic);
-    }
-
-    pub(crate) fn end_italic(&mut self) {
-        let italic = Token::Italic(self.italic_tokens.drain(..).collect());
-        match self.lines.last_mut() {
-            Some(Line::Header { tokens, .. }) => tokens.push(italic),
-            Some(Line::Paragraph(tokens, ..)) => tokens.push(italic),
-            Some(Line::Image { label, .. }) => label.push(italic),
-            Some(Line::Blank) => {}
+        match self.line {
+            Some(Line::Header { ref mut tokens, .. }) => tokens.push(Token::Bold(Vec::new())),
+            Some(Line::Paragraph(ref mut tokens, ..)) => tokens.push(Token::Bold(Vec::new())),
             None => {}
         };
-
-        self.parsing.pop();
     }
 
+    pub(crate) fn end_bold(&mut self) {}
+
+    pub(crate) fn start_italic(&mut self) {
+        match self.line {
+            Some(Line::Header { ref mut tokens, .. }) => tokens.push(Token::Italic(Vec::new())),
+            Some(Line::Paragraph(ref mut tokens, ..)) => tokens.push(Token::Italic(Vec::new())),
+            None => {}
+        };
+    }
+
+    pub(crate) fn end_italic(&mut self) {}
+
     pub(crate) fn add_word(&mut self, word: &str) {
-        match self.parsing.last() {
-            Some(Parsing::Bold) => self.bold_tokens.push(Token::Regular(word.to_string())),
-            Some(Parsing::Italic) => self.italic_tokens.push(Token::Regular(word.to_string())),
-            None => match self.lines.last_mut() {
-                Some(Line::Header { tokens, .. }) => tokens.push(Token::Regular(word.to_string())),
-                Some(Line::Paragraph(tokens, ..)) => tokens.push(Token::Regular(word.to_string())),
-                Some(Line::Image { .. }) => {}
-                Some(Line::Blank) => {}
+        let last_token = match self.line {
+            Some(Line::Header { ref mut tokens, .. }) => tokens.last_mut(),
+            Some(Line::Paragraph(ref mut tokens, ..)) => tokens.last_mut(),
+            None => None,
+        };
+
+        use Token::*;
+        match last_token {
+            Some(Bold(ref mut words)) => words.push(Regular(word.to_string())),
+            Some(Italic(ref mut words)) => words.push(Regular(word.to_string())),
+            Some(InlineCode(ref mut words)) => words.push(Regular(word.to_string())),
+            Some(Link { ref mut label, .. }) => label.push(Regular(word.to_string())),
+            _ => match self.line {
+                Some(Line::Header { ref mut tokens, .. }) => tokens.push(Regular(word.to_string())),
+                Some(Line::Paragraph(ref mut tokens, ..)) => tokens.push(Regular(word.to_string())),
                 None => {}
             },
-        }
+        };
     }
 
     pub(crate) fn end_line(&mut self) {
-        self.parsing.clear();
-        self.bold_tokens.clear();
-        self.italic_tokens.clear();
-        self.label_tokens.clear();
+        if let Some(line) = self.line.take() {
+            self.lines.push(line);
+        }
     }
 }
